@@ -63,6 +63,19 @@ tasks.named<Jar>("jar") {
 }
 
 publishing {
+    // This fork's GitHub Packages, used by .github/workflows/publish-packages.yml. Upstream
+    // publishes to Maven Central instead, which needs credentials this fork does not have.
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/" + (System.getenv("GITHUB_REPOSITORY") ?: "jlftt/webrtc-java"))
+            credentials {
+                username = System.getenv("GITHUB_ACTOR")
+                password = System.getenv("GITHUB_TOKEN")
+            }
+        }
+    }
+
     publications {
         create<MavenPublication>("maven") {
             artifactId = "webrtc-java"
