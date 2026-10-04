@@ -27,10 +27,12 @@ namespace jni
 
 	JavaLocalRef<jobject> DataBufferFactory::create(JNIEnv * env, const webrtc::DataBuffer * dataBuffer) const
 	{
-		jobject directBuffer = env->NewDirectByteBuffer(const_cast<char *>(dataBuffer->data.data<char>()), dataBuffer->data.size());
+		// Held by a JavaLocalRef so the local reference is deleted once the buffer object
+		// holds its own reference. Callers on attached native threads never free it otherwise.
+		JavaLocalRef<jobject> directBuffer(env, env->NewDirectByteBuffer(const_cast<char *>(dataBuffer->data.data<char>()), dataBuffer->data.size()));
 		const jboolean isBinary = static_cast<jboolean>(dataBuffer->binary);
 
-		jobject object = env->NewObject(javaClass, javaCtor, directBuffer, isBinary);
+		jobject object = env->NewObject(javaClass, javaCtor, directBuffer.get(), isBinary);
 		ExceptionCheck(env);
 
 		return JavaLocalRef<jobject>(env, object);
