@@ -7,7 +7,7 @@ This is a fork of devopvoid's [webrtc-java](https://github.com/devopvoid/webrtc-
 This is [jlftt](https://github.com/jlftt)'s fork of [Kas-tle/webrtc-java](https://github.com/Kas-tle/webrtc-java), used by the [Geyser](https://github.com/jlftt/Geyser) portal bridge through [NetworkCompatible](https://github.com/jlftt/NetworkCompatible). It fixes memory leaks that grew a busy Velocity proxy's heap by about 100 MB an hour:
 
 - **Every received message** leaked two Java objects, the `RTCDataChannelBuffer` handed to the observer and the direct `ByteBuffer` inside it. `OnMessage` runs on a native thread that stays attached to the JVM, so the JNI local references it created were never freed. They are now deleted after each message.
-- **Every closed connection** leaked its native `PeerConnection`: `close()` cleared the Java handle without releasing the reference it owned. It now releases it.
+- **Every closed connection** leaked its native `PeerConnection`: `close()` cleared the Java handle without releasing the reference it owned. It now releases it. Because the connection is really freed now, every other call takes its own reference to it first, under the same monitor `close()` empties the handle under, so a call racing with `close()` on another thread cannot use a freed connection.
 - **Every registered data channel observer** leaked, along with the JNI global reference to the Java observer, which kept the whole closed channel reachable. It is now freed when it is replaced, unregistered, or the channel is disposed. A callback whose thread can no longer attach to the JVM is dropped instead of crashing.
 
 The last two are ported from devopvoid/webrtc-java@8b77ec8, the first matches devopvoid/webrtc-java@40e538b.
