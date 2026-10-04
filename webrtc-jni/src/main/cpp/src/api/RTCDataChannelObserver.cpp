@@ -31,6 +31,10 @@ namespace jni
 	{
 		JNIEnv * env = AttachCurrentThread();
 
+		if (env == nullptr) {
+			return;
+		}
+
 		env->CallVoidMethod(observer, javaClass->onStateChange);
 
 		ExceptionCheck(env);
@@ -39,6 +43,10 @@ namespace jni
 	void RTCDataChannelObserver::OnMessage(const webrtc::DataBuffer & buffer)
 	{
 		JNIEnv * env = AttachCurrentThread();
+
+		if (env == nullptr) {
+			return;
+		}
 
 		// This runs on a native WebRTC thread that stays attached to the JVM, so a local
 		// reference is never freed by returning to Java. Keep ownership with jBuffer, so the
@@ -53,6 +61,10 @@ namespace jni
 	void RTCDataChannelObserver::OnBufferedAmountChange(uint64_t sent_data_size)
 	{
 		JNIEnv * env = AttachCurrentThread();
+
+		if (env == nullptr) {
+			return;
+		}
 
 		env->CallVoidMethod(observer, javaClass->onBufferedAmountChange, static_cast<jlong>(sent_data_size));
 
