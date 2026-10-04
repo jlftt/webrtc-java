@@ -38,10 +38,25 @@
 
 #include <string>
 
+// Takes this call's own reference to the PeerConnection, under the Java object's monitor.
+// close() swaps the handle out under the same monitor before it drops Java's reference, so a
+// call racing with close() on another thread either sees no handle or keeps the
+// PeerConnection alive until it returns, and can never use one that was already freed.
+// The monitor is only held to read the handle, never across a call into WebRTC.
+static webrtc::scoped_refptr<webrtc::PeerConnectionInterface> AcquirePeerConnection(JNIEnv * env, jobject caller)
+{
+	env->MonitorEnter(caller);
+	webrtc::scoped_refptr<webrtc::PeerConnectionInterface> pc(GetHandle<webrtc::PeerConnectionInterface>(env, caller));
+	env->MonitorExit(caller);
+
+	return pc;
+}
+
 JNIEXPORT jobjectArray JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_getSenders
 (JNIEnv * env, jobject caller)
 {
-	webrtc::PeerConnectionInterface * pc = GetHandle<webrtc::PeerConnectionInterface>(env, caller);
+	webrtc::scoped_refptr<webrtc::PeerConnectionInterface> pcRef = AcquirePeerConnection(env, caller);
+	webrtc::PeerConnectionInterface * pc = pcRef.get();
 	CHECK_HANDLEV(pc, nullptr);
 
 	jni::JavaLocalRef<jobjectArray> objectArray;
@@ -59,7 +74,8 @@ JNIEXPORT jobjectArray JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_getSende
 JNIEXPORT jobjectArray JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_getReceivers
 (JNIEnv * env, jobject caller)
 {
-	webrtc::PeerConnectionInterface * pc = GetHandle<webrtc::PeerConnectionInterface>(env, caller);
+	webrtc::scoped_refptr<webrtc::PeerConnectionInterface> pcRef = AcquirePeerConnection(env, caller);
+	webrtc::PeerConnectionInterface * pc = pcRef.get();
 	CHECK_HANDLEV(pc, nullptr);
 
 	jni::JavaLocalRef<jobjectArray> objectArray;
@@ -77,7 +93,8 @@ JNIEXPORT jobjectArray JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_getRecei
 JNIEXPORT jobjectArray JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_getTransceivers
 (JNIEnv * env, jobject caller)
 {
-	webrtc::PeerConnectionInterface * pc = GetHandle<webrtc::PeerConnectionInterface>(env, caller);
+	webrtc::scoped_refptr<webrtc::PeerConnectionInterface> pcRef = AcquirePeerConnection(env, caller);
+	webrtc::PeerConnectionInterface * pc = pcRef.get();
 	CHECK_HANDLEV(pc, nullptr);
 
 	jni::JavaLocalRef<jobjectArray> objectArray;
@@ -104,7 +121,8 @@ JNIEXPORT jobject JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_createDataCha
 		return nullptr;
 	}
 
-	webrtc::PeerConnectionInterface * pc = GetHandle<webrtc::PeerConnectionInterface>(env, caller);
+	webrtc::scoped_refptr<webrtc::PeerConnectionInterface> pcRef = AcquirePeerConnection(env, caller);
+	webrtc::PeerConnectionInterface * pc = pcRef.get();
 	CHECK_HANDLEV(pc, nullptr);
 
 	std::string label = jni::JavaString::toNative(env, jni::JavaLocalRef<jstring>(env, jLabel));
@@ -142,7 +160,8 @@ JNIEXPORT void JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_createOffer
 		return;
 	}
 
-	webrtc::PeerConnectionInterface * pc = GetHandle<webrtc::PeerConnectionInterface>(env, caller);
+	webrtc::scoped_refptr<webrtc::PeerConnectionInterface> pcRef = AcquirePeerConnection(env, caller);
+	webrtc::PeerConnectionInterface * pc = pcRef.get();
 	CHECK_HANDLE(pc);
 
 	try {
@@ -168,7 +187,8 @@ JNIEXPORT void JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_createAnswer
 		return;
 	}
 
-	webrtc::PeerConnectionInterface * pc = GetHandle<webrtc::PeerConnectionInterface>(env, caller);
+	webrtc::scoped_refptr<webrtc::PeerConnectionInterface> pcRef = AcquirePeerConnection(env, caller);
+	webrtc::PeerConnectionInterface * pc = pcRef.get();
 	CHECK_HANDLE(pc);
 
 	try {
@@ -185,7 +205,8 @@ JNIEXPORT void JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_createAnswer
 JNIEXPORT jobject JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_getCurrentLocalDescription
 (JNIEnv * env, jobject caller)
 {
-	webrtc::PeerConnectionInterface * pc = GetHandle<webrtc::PeerConnectionInterface>(env, caller);
+	webrtc::scoped_refptr<webrtc::PeerConnectionInterface> pcRef = AcquirePeerConnection(env, caller);
+	webrtc::PeerConnectionInterface * pc = pcRef.get();
 	CHECK_HANDLEV(pc, nullptr);
 
 	if (!pc->current_local_description()) {
@@ -198,7 +219,8 @@ JNIEXPORT jobject JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_getCurrentLoc
 JNIEXPORT jobject JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_getLocalDescription
 (JNIEnv * env, jobject caller)
 {
-	webrtc::PeerConnectionInterface * pc = GetHandle<webrtc::PeerConnectionInterface>(env, caller);
+	webrtc::scoped_refptr<webrtc::PeerConnectionInterface> pcRef = AcquirePeerConnection(env, caller);
+	webrtc::PeerConnectionInterface * pc = pcRef.get();
 	CHECK_HANDLEV(pc, nullptr);
 
 	if (!pc->local_description()) {
@@ -211,7 +233,8 @@ JNIEXPORT jobject JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_getLocalDescr
 JNIEXPORT jobject JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_getPendingLocalDescription
 (JNIEnv * env, jobject caller)
 {
-	webrtc::PeerConnectionInterface * pc = GetHandle<webrtc::PeerConnectionInterface>(env, caller);
+	webrtc::scoped_refptr<webrtc::PeerConnectionInterface> pcRef = AcquirePeerConnection(env, caller);
+	webrtc::PeerConnectionInterface * pc = pcRef.get();
 	CHECK_HANDLEV(pc, nullptr);
 
 	if (!pc->pending_local_description()) {
@@ -224,7 +247,8 @@ JNIEXPORT jobject JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_getPendingLoc
 JNIEXPORT jobject JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_getCurrentRemoteDescription
 (JNIEnv * env, jobject caller)
 {
-	webrtc::PeerConnectionInterface * pc = GetHandle<webrtc::PeerConnectionInterface>(env, caller);
+	webrtc::scoped_refptr<webrtc::PeerConnectionInterface> pcRef = AcquirePeerConnection(env, caller);
+	webrtc::PeerConnectionInterface * pc = pcRef.get();
 	CHECK_HANDLEV(pc, nullptr);
 
 	if (!pc->current_remote_description()) {
@@ -237,7 +261,8 @@ JNIEXPORT jobject JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_getCurrentRem
 JNIEXPORT jobject JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_getRemoteDescription
 (JNIEnv * env, jobject caller)
 {
-	webrtc::PeerConnectionInterface * pc = GetHandle<webrtc::PeerConnectionInterface>(env, caller);
+	webrtc::scoped_refptr<webrtc::PeerConnectionInterface> pcRef = AcquirePeerConnection(env, caller);
+	webrtc::PeerConnectionInterface * pc = pcRef.get();
 	CHECK_HANDLEV(pc, nullptr);
 
 	if (!pc->remote_description()) {
@@ -250,7 +275,8 @@ JNIEXPORT jobject JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_getRemoteDesc
 JNIEXPORT jobject JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_getPendingRemoteDescription
 (JNIEnv * env, jobject caller)
 {
-	webrtc::PeerConnectionInterface * pc = GetHandle<webrtc::PeerConnectionInterface>(env, caller);
+	webrtc::scoped_refptr<webrtc::PeerConnectionInterface> pcRef = AcquirePeerConnection(env, caller);
+	webrtc::PeerConnectionInterface * pc = pcRef.get();
 	CHECK_HANDLEV(pc, nullptr);
 
 	if (!pc->pending_remote_description()) {
@@ -272,7 +298,8 @@ JNIEXPORT void JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_setLocalDescript
 		return;
 	}
 
-	webrtc::PeerConnectionInterface * pc = GetHandle<webrtc::PeerConnectionInterface>(env, caller);
+	webrtc::scoped_refptr<webrtc::PeerConnectionInterface> pcRef = AcquirePeerConnection(env, caller);
+	webrtc::PeerConnectionInterface * pc = pcRef.get();
 	CHECK_HANDLE(pc);
 
 	try {
@@ -298,7 +325,8 @@ JNIEXPORT void JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_setRemoteDescrip
 		return;
 	}
 
-	webrtc::PeerConnectionInterface * pc = GetHandle<webrtc::PeerConnectionInterface>(env, caller);
+	webrtc::scoped_refptr<webrtc::PeerConnectionInterface> pcRef = AcquirePeerConnection(env, caller);
+	webrtc::PeerConnectionInterface * pc = pcRef.get();
 	CHECK_HANDLE(pc);
 
 	try {
@@ -320,7 +348,8 @@ JNIEXPORT void JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_addIceCandidate
 		return;
 	}
 
-	webrtc::PeerConnectionInterface * pc = GetHandle<webrtc::PeerConnectionInterface>(env, caller);
+	webrtc::scoped_refptr<webrtc::PeerConnectionInterface> pcRef = AcquirePeerConnection(env, caller);
+	webrtc::PeerConnectionInterface * pc = pcRef.get();
 	CHECK_HANDLE(pc);
 
 	try {
@@ -340,7 +369,8 @@ JNIEXPORT void JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_removeIceCandida
 		return;
 	}
 
-	webrtc::PeerConnectionInterface * pc = GetHandle<webrtc::PeerConnectionInterface>(env, caller);
+	webrtc::scoped_refptr<webrtc::PeerConnectionInterface> pcRef = AcquirePeerConnection(env, caller);
+	webrtc::PeerConnectionInterface * pc = pcRef.get();
 	CHECK_HANDLE(pc);
 
 	try {
@@ -360,7 +390,8 @@ JNIEXPORT void JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_removeIceCandida
 JNIEXPORT jobject JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_getSignalingState
 (JNIEnv * env, jobject caller)
 {
-	webrtc::PeerConnectionInterface * pc = GetHandle<webrtc::PeerConnectionInterface>(env, caller);
+	webrtc::scoped_refptr<webrtc::PeerConnectionInterface> pcRef = AcquirePeerConnection(env, caller);
+	webrtc::PeerConnectionInterface * pc = pcRef.get();
 	CHECK_HANDLE_DEFAULT(pc, jni::JavaEnums::toJava(env, webrtc::PeerConnectionInterface::SignalingState::kClosed).release());
 
 	return jni::JavaEnums::toJava(env, pc->signaling_state()).release();
@@ -369,7 +400,8 @@ JNIEXPORT jobject JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_getSignalingS
 JNIEXPORT jobject JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_getIceGatheringState
 (JNIEnv * env, jobject caller)
 {
-	webrtc::PeerConnectionInterface * pc = GetHandle<webrtc::PeerConnectionInterface>(env, caller);
+	webrtc::scoped_refptr<webrtc::PeerConnectionInterface> pcRef = AcquirePeerConnection(env, caller);
+	webrtc::PeerConnectionInterface * pc = pcRef.get();
 	CHECK_HANDLE_DEFAULT(pc, jni::JavaEnums::toJava(env, webrtc::PeerConnectionInterface::IceGatheringState::kIceGatheringNew).release());
 
 	return jni::JavaEnums::toJava(env, pc->ice_gathering_state()).release();
@@ -378,7 +410,8 @@ JNIEXPORT jobject JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_getIceGatheri
 JNIEXPORT jobject JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_getIceConnectionState
 (JNIEnv * env, jobject caller)
 {
-	webrtc::PeerConnectionInterface * pc = GetHandle<webrtc::PeerConnectionInterface>(env, caller);
+	webrtc::scoped_refptr<webrtc::PeerConnectionInterface> pcRef = AcquirePeerConnection(env, caller);
+	webrtc::PeerConnectionInterface * pc = pcRef.get();
 	CHECK_HANDLE_DEFAULT(pc, jni::JavaEnums::toJava(env, webrtc::PeerConnectionInterface::IceConnectionState::kIceConnectionClosed).release());
 
 	return jni::JavaEnums::toJava(env, pc->ice_connection_state()).release();
@@ -387,7 +420,8 @@ JNIEXPORT jobject JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_getIceConnect
 JNIEXPORT jobject JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_getConnectionState
 (JNIEnv * env, jobject caller)
 {
-	webrtc::PeerConnectionInterface * pc = GetHandle<webrtc::PeerConnectionInterface>(env, caller);
+	webrtc::scoped_refptr<webrtc::PeerConnectionInterface> pcRef = AcquirePeerConnection(env, caller);
+	webrtc::PeerConnectionInterface * pc = pcRef.get();
 	CHECK_HANDLE_DEFAULT(pc, jni::JavaEnums::toJava(env, webrtc::PeerConnectionInterface::PeerConnectionState::kClosed).release());
 
 	return jni::JavaEnums::toJava(env, pc->peer_connection_state()).release();
@@ -396,7 +430,8 @@ JNIEXPORT jobject JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_getConnection
 JNIEXPORT jobject JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_getConfiguration
 (JNIEnv * env, jobject caller)
 {
-	webrtc::PeerConnectionInterface * pc = GetHandle<webrtc::PeerConnectionInterface>(env, caller);
+	webrtc::scoped_refptr<webrtc::PeerConnectionInterface> pcRef = AcquirePeerConnection(env, caller);
+	webrtc::PeerConnectionInterface * pc = pcRef.get();
 	CHECK_HANDLEV(pc, nullptr);
 
 	return jni::RTCConfiguration::toJava(env, pc->GetConfiguration()).release();
@@ -410,7 +445,8 @@ JNIEXPORT void JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_setConfiguration
 		return;
 	}
 
-	webrtc::PeerConnectionInterface * pc = GetHandle<webrtc::PeerConnectionInterface>(env, caller);
+	webrtc::scoped_refptr<webrtc::PeerConnectionInterface> pcRef = AcquirePeerConnection(env, caller);
+	webrtc::PeerConnectionInterface * pc = pcRef.get();
 	CHECK_HANDLE(pc);
 
 	auto config = jni::RTCConfiguration::toNative(env, jni::JavaLocalRef<jobject>(env, jConfig));
@@ -425,7 +461,8 @@ JNIEXPORT void JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_setConfiguration
 JNIEXPORT void JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_getStats__Ldev_kastle_webrtc_RTCStatsCollectorCallback_2
 (JNIEnv * env, jobject caller, jobject jcallback)
 {
-	webrtc::PeerConnectionInterface * pc = GetHandle<webrtc::PeerConnectionInterface>(env, caller);
+	webrtc::scoped_refptr<webrtc::PeerConnectionInterface> pcRef = AcquirePeerConnection(env, caller);
+	webrtc::PeerConnectionInterface * pc = pcRef.get();
 	CHECK_HANDLE(pc);
 
 	if (jcallback == nullptr) {
@@ -441,7 +478,8 @@ JNIEXPORT void JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_getStats__Ldev_k
 JNIEXPORT void JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_restartIce
 (JNIEnv * env, jobject caller)
 {
-	webrtc::PeerConnectionInterface * pc = GetHandle<webrtc::PeerConnectionInterface>(env, caller);
+	webrtc::scoped_refptr<webrtc::PeerConnectionInterface> pcRef = AcquirePeerConnection(env, caller);
+	webrtc::PeerConnectionInterface * pc = pcRef.get();
 	CHECK_HANDLE(pc);
 
 	pc->RestartIce();
@@ -450,13 +488,19 @@ JNIEXPORT void JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_restartIce
 JNIEXPORT void JNICALL Java_dev_kastle_webrtc_RTCPeerConnection_close
 (JNIEnv * env, jobject caller)
 {
+	// Taken out of the Java object first, under the monitor AcquirePeerConnection() reads it
+	// under: no other call can pick the handle up once this one is about to free it, and a
+	// second close() finds nothing to free.
+	env->MonitorEnter(caller);
 	webrtc::PeerConnectionInterface * pc = GetHandle<webrtc::PeerConnectionInterface>(env, caller);
+	if (pc != nullptr) {
+		SetHandle<std::nullptr_t>(env, caller, nullptr);
+	}
+	env->MonitorExit(caller);
 	CHECK_HANDLE(pc);
 
 	try {
 		pc->Close();
-
-		SetHandle<std::nullptr_t>(env, caller, nullptr);
 
 		ClearNativeObserver<webrtc::PeerConnectionObserver>(env, caller, "observerHandle");
 
