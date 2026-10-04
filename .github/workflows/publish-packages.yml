@@ -1,0 +1,87 @@
+name: Publish Packages
+
+# Publishes webrtc-java to this fork's GitHub Packages, so Geyser can use the fixed native library
+# instead of the Maven Central release. Upstream's own release job in build.yml only runs on
+# Kas-tle/webrtc-java.
+#
+# The native jars are not rebuilt here: they are downloaded from a finished Build run, because
+# compiling WebRTC takes hours. Runs on its own after a successful Build on master, or by hand
+# with the ID of any successful Build run of the same version.
+on:
+  workflow_run:
+    workflows:
+      - Build
+    types:
+      - completed
+    branches:
+      - master
+  workflow_dispatch:
+    inputs:
+      run-id:
+        description: "ID of the successful Build run whose native jars to publish"
+        required: true
+
+permissions:
+  actions: read
+  contents: write
+  packages: write
+
+jobs:
+  publish:
+    if: ${{ github.repository == 'jlftt/webrtc-java' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success') }}
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          # Needed so the existing tags are present locally and the check below is meaningful.
+          fetch-depth: 0
+        name: Checkout Repository
+
+      - name: Read version
+        id: version
+        run: echo "version=$(cat gradle.properties | grep version= | cut -d'=' -f2)" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Check whether the tag already exists
+        id: check
+        run: |
+          if git rev-parse "refs/tags/${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Tag ${{ steps.version.outputs.version }} already exists - nothing to do."
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
+      - uses: ./.github/actions/setup-gradle
+        if: steps.check.outputs.exists == 'false'
+        name: Setup Gradle
+
+      # The publication attaches every native jar it finds in native-staging; see
+      # webrtc/build.gradle.kts.
+      - name: Download the native jars
+        if: steps.check.outputs.exists == 'false'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          run-id: ${{ github.event.workflow_run.id || inputs.run-id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: native-staging
+
+      # Before the tag, so a failed publish can simply be run again: once the tag exists, the check
+      # above skips everything.
+      - name: Publish to GitHub Packages
+        if: steps.check.outputs.exists == 'false'
+        run: ./gradlew :webrtc:publishMavenPublicationToGitHubPackagesRepository
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+
+      - name: Create and push the tag
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "${{ steps.version.outputs.version }}"
+          git push origin "${{ steps.version.outputs.version }}"
+        shell: bash

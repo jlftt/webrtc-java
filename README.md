@@ -2,6 +2,18 @@
 
 This is a fork of devopvoid's [webrtc-java](https://github.com/devopvoid/webrtc-java) library, a Java wrapper for the [WebRTC Native API](https://webrtc.github.io/webrtc-org/native-code/native-apis). You can join the [Discord](https://discord.gg/5z4GuSnqmQ) for help with this fork.
 
+## This fork
+
+This is [jlftt](https://github.com/jlftt)'s fork of [Kas-tle/webrtc-java](https://github.com/Kas-tle/webrtc-java), used by the [Geyser](https://github.com/jlftt/Geyser) portal bridge through [NetworkCompatible](https://github.com/jlftt/NetworkCompatible). It fixes memory leaks that grew a busy Velocity proxy's heap by about 100 MB an hour:
+
+- **Every received message** leaked two Java objects, the `RTCDataChannelBuffer` handed to the observer and the direct `ByteBuffer` inside it. `OnMessage` runs on a native thread that stays attached to the JVM, so the JNI local references it created were never freed. They are now deleted after each message.
+- **Every closed connection** leaked its native `PeerConnection`: `close()` cleared the Java handle without releasing the reference it owned. It now releases it.
+- **Every registered data channel observer** leaked, along with the JNI global reference to the Java observer, which kept the whole closed channel reachable. It is now freed when it is replaced, unregistered, or the channel is disposed. A callback whose thread can no longer attach to the JVM is dropped instead of crashing.
+
+The last two are ported from devopvoid/webrtc-java@8b77ec8, the first matches devopvoid/webrtc-java@40e538b.
+
+Versions are named `1.0.4-ip.N`. The **Publish Packages** workflow publishes them to this repository's GitHub Packages, with the native jars of a finished **Build** run, so a release does not rebuild WebRTC. It runs after each successful Build on `master`, or by hand with a Build run ID. Reading the packages needs a token with `read:packages`; Geyser's release uses its `PACKAGES_TOKEN` secret.
+
 ## Differences from the Original Project
 
 This stripped down version of the library removes audio and video support, focusing solely on data channels for peer-to-peer data exchange. It is intended for use cases where only data transfer is required, such as multiplayer gaming or real-time data synchronization. The removal of media capabilities results in a significantly smaller library size and increased portability.
