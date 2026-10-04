@@ -40,9 +40,12 @@ namespace jni
 	{
 		JNIEnv * env = AttachCurrentThread();
 
+		// This runs on a native WebRTC thread that stays attached to the JVM, so a local
+		// reference is never freed by returning to Java. Keep ownership with jBuffer, so the
+		// reference is deleted when it goes out of scope instead of leaking on every message.
 		JavaLocalRef<jobject> jBuffer = bufferFactory->create(env, &buffer);
 
-		env->CallVoidMethod(observer, javaClass->onMessage, jBuffer.release());
+		env->CallVoidMethod(observer, javaClass->onMessage, jBuffer.get());
 
 		ExceptionCheck(env);
 	}
